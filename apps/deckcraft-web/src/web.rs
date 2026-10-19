@@ -23,7 +23,7 @@ pub fn start() {
             return;
         };
         let mut options = eframe::WebOptions::default();
-        if query().contains("webgl")
+        if query().contains("webgl") || web_sys::window().and_then(|w| w.inner_width().ok()).and_then(|v| v.as_f64()).is_some_and(|width| width < 800.0)
             && let eframe::egui_wgpu::WgpuSetup::CreateNew(create) = &mut options.wgpu_options.wgpu_setup
         {
             create.instance_descriptor.backends = eframe::wgpu::Backends::GL;
