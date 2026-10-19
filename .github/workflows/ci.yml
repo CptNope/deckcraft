@@ -3,9 +3,6 @@ name: ci
 # Quality gates for every push to main and every pull request: rustfmt, clippy (-D warnings),
 # tests, asset attribution, crate layering and the wasm32 check — `cargo xtask ci`.
 on:
-  push:
-    branches: [main]
-  pull_request:
   workflow_dispatch:
 
 concurrency:

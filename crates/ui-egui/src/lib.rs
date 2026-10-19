@@ -1816,6 +1816,9 @@ impl SlideApp {
         self.sync_backstage();
         self.keyboard(&ctx);
         self.sync_backstage();
+        if cfg!(target_arch = "wasm32") && ctx.content_rect().width() < 720.0 {
+            self.mobile_ui(ui);
+        } else {
         ribbon::title_bar(self, ui);
         if self.backstage.is_none() && self.session.active().is_some() {
             ribbon::show(self, ui);
@@ -1855,6 +1858,7 @@ impl SlideApp {
                 }
             }
         });
+        }
         toast::note_missing_fonts(self);
         toast::show(self, &ctx);
         dialogs::show(self, &ctx);
@@ -1868,6 +1872,50 @@ impl SlideApp {
         self.drain_requests();
         doc_window::show(self, &ctx);
         self.perf.frame_ms = now_ms() - t0;
+    }
+
+    /// Phone-first browser workspace: show the slide without desktop side panels.
+    fn mobile_ui(&mut self, ui: &mut egui::Ui) {
+        let t = theme::Tokens::get(ui.ctx());
+        if self.backstage.is_some() {
+            backstage::show_phone(self, ui);
+            return;
+        }
+        let id = egui::Id::new("deckcraft-mobile-pane");
+        let mut pane = ui.ctx().data(|d| d.get_temp::<u8>(id)).unwrap_or(0);
+        egui::Panel::top("deckcraft-mobile-actions").exact_size(52.0)
+            .frame(egui::Frame::NONE.fill(t.chrome).inner_margin(egui::Margin::symmetric(6, 7)))
+            .show(ui, |ui| {
+                egui::ScrollArea::horizontal().id_salt("deckcraft-mobile-actions-scroll")
+                    .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden)
+                    .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            if ui.button("File").clicked() { self.open_backstage(backstage::Page::Home); }
+                            for (index, label) in [(0, "Slide"), (1, "Slides"), (2, "Tools")] {
+                                if ui.selectable_label(pane == index, label).clicked() { pane = index; }
+                            }
+                            if ui.button("+ Slide").clicked() { let _ = self.run("slide.new", serde_json::json!({})); }
+                            if ui.button("Save").clicked() { self.save(); }
+                            if ui.button("Undo").clicked() { let _ = self.run("edit.undo", serde_json::json!({})); }
+                            if ui.button("Redo").clicked() { let _ = self.run("edit.redo", serde_json::json!({})); }
+                            if ui.button("Present").clicked() { self.start_show(self.show_start_index(), false); }
+                        });
+                    });
+            });
+        ui.ctx().data_mut(|d| d.insert_temp(id, pane));
+        if pane == 2 {
+            self.ui.ribbon_collapsed = false;
+            ribbon::show(self, ui);
+        }
+        egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.canvas)).show(ui, |ui| {
+            if self.session.active().is_none() { return; }
+            if pane == 1 {
+                // A full-width page of thumbnails, not the desktop 150pt side pane.
+                sorter::show(self, ui);
+            } else {
+                canvas::show(self, ui);
+            }
+        });
     }
 
     /// Media clocks and video textures. Voices belong to the open presentation: closing the last

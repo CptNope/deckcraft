@@ -433,6 +433,72 @@ pub fn show(app: &mut SlideApp, ui: &mut Ui) {
     }
 }
 
+/// Single-column File/New/Open experience on phone-sized browser viewports.
+pub fn show_phone(app: &mut SlideApp, ui: &mut Ui) {
+    let Some(mut bs) = app.backstage.take() else { return };
+    let t = Tokens::get(ui.ctx());
+    let has_doc = app.session.active().is_some();
+    if !has_doc && bs.page.needs_doc() { bs.go(Page::Home); }
+    let mut out = Outcome::default();
+    let (_, page_bg) = colours(&t);
+    egui::Panel::top("deckcraft-phone-file-tabs").exact_size(48.0)
+        .frame(egui::Frame::NONE.fill(t.chrome).inner_margin(egui::Margin::same(6)))
+        .show(ui, |ui| {
+            ui.horizontal(|ui| {
+                if ui.button("‹ Back").clicked() { out.close = true; }
+                egui::ComboBox::from_id_salt("deckcraft-phone-file-select")
+                    .selected_text(bs.page.label())
+                    .width((ui.available_width() - 106.0).max(95.0))
+                    .show_ui(ui, |ui| {
+                        for page in Page::ALL {
+                            if !has_doc && page.needs_doc() { continue; }
+                            if ui.selectable_label(bs.page == page, page.label()).clicked() { out.page = Some(page); }
+                        }
+                    });
+                if has_doc && ui.button("Save").clicked() { app.save(); }
+            });
+        });
+    if let Some(page) = out.page.take() { bs.go(page); }
+    egui::CentralPanel::default().frame(egui::Frame::NONE.fill(page_bg)).show(ui, |ui| {
+        egui::ScrollArea::vertical().id_salt("deckcraft-mobile-files")
+            .auto_shrink([false, false]).show(ui, |ui| {
+                egui::Frame::NONE.inner_margin(egui::Margin::symmetric(12, 12)).show(ui, |ui| {
+                    ui.set_max_width(ui.available_width());
+                    ui.label(RichText::new(bs.page.label()).font(theme::bold(21.0)).color(t.text));
+                    ui.add_space(12.0);
+                    match bs.page {
+                        Page::Home => {
+                            if ui.button("Blank Presentation").clicked() {
+                                let _ = app.run("file.new", json!({}));
+                                out.close = true;
+                            }
+                            if ui.button("Open Presentation").clicked() {
+                                app.open_backstage(Page::Open);
+                            }
+                            ui.add_space(14.0);
+                            new_tiles(app, ui, "", 4, false);
+                        }
+                        Page::New => {
+                            if ui.button("Blank Presentation").clicked() {
+                                let _ = app.run("file.new", json!({}));
+                                out.close = true;
+                            }
+                            new_tiles(app, ui, "", 16, false);
+                        }
+                        Page::Open => open_page(app, ui, &mut bs),
+                        Page::Info => info(app, ui, &mut bs),
+                        Page::SaveAs => save_as(app, ui, &mut bs, &mut out),
+                        Page::Print => print(app, ui, &mut bs),
+                        Page::Export => export(app, ui, &mut bs),
+                        Page::Account => account(app, ui),
+                    }
+                });
+            });
+    });
+    if out.close && has_doc { app.backstage = None; }
+    else if app.backstage.is_none() { app.backstage = Some(bs); }
+}
+
 // ---------------------------------------------------------------- side menu
 
 fn nav_item(ui: &mut Ui, nav: Nav, bs: &Backstage, index: usize, t: &Tokens) -> egui::Response {
