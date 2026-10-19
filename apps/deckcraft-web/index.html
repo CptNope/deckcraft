@@ -15,6 +15,22 @@
 </head>
 <body>
   <canvas id="deckcraft_canvas"></canvas>
-  <div id="deckcraft_loading">Loading DeckCraft&hellip;</div>
+  <div id="deckcraft_loading" role="status" aria-live="polite">Loading DeckCraft&hellip;</div>
+  <script>
+    window.addEventListener("error", function(event) {
+      const loading = document.getElementById("deckcraft_loading");
+      if (loading && event.message) loading.textContent = "DeckCraft startup error: " + event.message;
+    });
+    window.addEventListener("unhandledrejection", function(event) {
+      const loading = document.getElementById("deckcraft_loading");
+      if (loading) loading.textContent = "DeckCraft could not initialize: " + String(event.reason);
+    });
+    window.setTimeout(function() {
+      const loading = document.getElementById("deckcraft_loading");
+      if (loading && loading.textContent.includes("Loading DeckCraft")) {
+        loading.innerHTML = 'DeckCraft is still starting. <a style="color:#a9ccff" href="./?webgl">Retry with WebGL2</a>. If this repeats, clear this site\'s cached data.';
+      }
+    }, 25000);
+  </script>
 </body>
 </html>
