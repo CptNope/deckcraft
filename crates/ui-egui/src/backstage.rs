@@ -495,7 +495,10 @@ pub fn show_phone(app: &mut SlideApp, ui: &mut Ui) {
                 });
             });
     });
-    if out.close && has_doc { app.backstage = None; }
+    // A successful Blank Presentation creates the first document during this frame.
+    // Check the *current* session rather than has_doc captured before the UI ran;
+    // otherwise the phone stays trapped in the File screen after creating a deck.
+    if out.close && app.session.active().is_some() { app.backstage = None; }
     else if app.backstage.is_none() { app.backstage = Some(bs); }
 }
 
