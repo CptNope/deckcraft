@@ -41,9 +41,14 @@ pub fn start() {
                     let inbox: Inbox = Inbox::default();
                     let mut app = SlideApp::new(Session::new(), services(inbox.clone(), cc.egui_ctx.clone()));
                     let q = query();
-                    if !q.contains("blank") {
+                    // Large sample decks can stall startup on phone browsers. Default to
+                    // a lightweight blank presentation on narrow viewports, while keeping
+                    // the sample available by explicitly opening ?sample.
+                    let phone = cc.egui_ctx.content_rect().width() < 800.0;
+                    if q.contains("sample") || (!phone && !q.contains("blank")) {
                         if let Err(e) = deckcraft_engine::sample::open_sample(&mut app.session) {
                             log::error!("sample deck: {e}");
+                            let _ = app.run("file.new", serde_json::json!({}));
                         }
                     } else if let Err(e) = app.run("file.new", serde_json::json!({})) {
                         log::error!("new presentation: {e}");
